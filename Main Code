@@ -1,0 +1,54 @@
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+from tensorflow.keras.utils import to_categorical
+
+# Load EMNIST dataset for digits and letters
+digits_data = pd.read_csv('/kaggle/input/emnist/emnist-digits-train.csv', header=None)
+letters_data = pd.read_csv('/kaggle/input/emnist/emnist-letters-train.csv', header=None)
+
+# Preprocess data
+def preprocess_data(data):
+    images = data.iloc[:, 1:].values.reshape(-1, 28, 28, 1).astype('float32') / 255.0
+    labels = to_categorical(data.iloc[:, 0], num_classes=36)  # Adjust to 36 classes for both digits and letters
+    return images, labels
+
+digits_images, digits_labels = preprocess_data(digits_data)
+letters_images, letters_labels = preprocess_data(letters_data)
+
+# Split data into train and test sets
+digits_train_images, digits_test_images, digits_train_labels, digits_test_labels = \
+    train_test_split(digits_images, digits_labels, test_size=0.2, random_state=42)
+
+letters_train_images, letters_test_images, letters_train_labels, letters_test_labels = \
+    train_test_split(letters_images, letters_labels, test_size=0.2, random_state=42)
+
+# Combine digits and letters data
+combined_train_images = np.concatenate((digits_train_images, letters_train_images))
+combined_train_labels = np.concatenate((digits_train_labels, letters_train_labels))
+combined_test_images = np.concatenate((digits_test_images, letters_test_images))
+combined_test_labels = np.concatenate((digits_test_labels, letters_test_labels))
+
+# Define CNN model
+model = Sequential([
+    Conv2D(32, (3, 3), activation='relu', input_shape=(28, 28, 1)),
+    MaxPooling2D((2, 2)),
+    Conv2D(64, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+    Flatten(),
+    Dense(64, activation='relu'),
+    Dense(36, activation='softmax')  # 10 digits + 26 letters = 36 classes
+])
+
+# Compile model
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+# Train model
+model.fit(combined_train_images, combined_train_labels, epochs=5, batch_size=128, validation_split=0.1)
+
+# Evaluate model on test set
+test_loss, test_accuracy = model.evaluate(combined_test_images, combined_test_labels)
+print("Test Loss:", test_loss)
+print("Test Accuracy:", test_accuracy)
